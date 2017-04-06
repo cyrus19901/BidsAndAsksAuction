@@ -1,0 +1,183 @@
+contract VickeryAuction{
+	uint _highestBid;
+	uint _secondPrice;
+	address _highestBidder;
+	address _seller;
+	address _approver;
+	bool _approved;
+	uint _initBlock;
+	uint _bidPeriod;
+	uint _txLength;
+	uint _txStart;
+	uint _txStop;
+	uint _kwhProd;
+	uint _kwhCons;
+	uint _kwh;
+	uint _reserve;
+
+	event ReadyforAuction();
+	event NewAuctionStart();
+	event AuctionApproved(address _highestBidder, uint _secondPrice);
+	event AuctionEnded();
+	
+	struct Bid{
+		uint _hbid;
+		uint _deposit;
+		address owner;
+		bytes32 crypt;
+	}
+    Bid[] public bids;
+	//mapping(address => Bid) public bids;
+
+	function VickeryAuction(address approver, uint bidPeriod) {
+		_approver = approver;
+		_approved = false;
+		_bidPeriod = bidPeriod;
+		_initBlock = block.number;
+	}
+
+	function initAuction() {
+	    ReadyforAuction();
+	}
+
+	//function newAuction(uint kwh, uint reserve, uint startTime, uint txLength, address seller) {
+	function newAuction() {	
+	    _highestBid=0;
+		_secondPrice = 0;
+		_kwh = 10;
+		//_txStart = startTime;
+		//_txLength = txLength;
+		//_seller  = seller;
+		//_reserve = reserve;
+		NewAuctionStart();
+	}
+    function commitBid(uint nonce, uint bid, address _owner)  returns (bool) {
+		Bid memory b;
+		b._hbid=bid;
+		bytes32 crypt_value = keccak256(bid,nonce);
+		b.crypt= crypt_value;
+		b.owner = _owner;
+		b._deposit = 500;
+        for(uint i = 0; i < bids.length; i++) {
+            Bid[] memory tempLedger = new Bid[](bids.length - i);
+            for(uint j = 0; j < tempLedger.length; j++) {
+                tempLedger[j] = bids[j+i];
+            }
+            bids[i] = b;
+            bids.length ++;
+            for(uint k = 0; k < tempLedger.length; k++) {
+                bids[k+i+1] = tempLedger[k];
+            }
+                return true;
+        }
+        bids.push(b);
+        return true;
+    }
+    function getbid(uint bid_index) external returns(uint,address,bytes32){
+        return (bids[bid_index]._hbid,bids[bid_index].owner,bids[bid_index].crypt);
+    }
+	function revealBid(uint nonce, uint revealBid) returns (address ) {
+		//need to also ensure reveal period is bounded by bidPeriod
+		if (block.number - _initBlock <= _bidPeriod)
+			throw;
+
+		Bid memory b;
+		//bytes32 test=keccak256(revealBid,nonce);
+		_highestBid = bids[0]._hbid;
+		uint _highestBidLocation =0;
+        for(uint i = 0; i < bids.length; i++) {
+    		if (keccak256(revealBid,nonce) != bids[0].crypt) throw;
+            if (bids[i]._hbid < _highestBid){
+                _highestBid = bids[i]._hbid;
+                _highestBidLocation =i;
+            }
+        }
+        
+        _secondPrice = bids[_highestBidLocation]._hbid;
+        address _secondPriceAddress = bids[_highestBidLocation].owner;
+// 		if (sha256(nonce, revealBid) != b.crypt)
+// 			throw;
+
+// 		if(revealBid > b._deposit)
+// 			throw;
+
+		if (revealBid > _highestBid)  {
+			_secondPrice = _highestBid;
+
+// 		if(!_highestBidder.send(bids[_highestBidder]._deposit))
+// 			throw;
+
+		_highestBidder = b.owner;
+		_highestBid = b._hbid;
+		}
+
+		return (_secondPriceAddress);
+	}
+
+	function approve() returns (bool _approved){
+		//if (block.number - _initBlock < _bidPeriod)
+		//	throw;
+		if (msg.sender != _approver)
+			throw;
+		if (_approved == true)
+			throw;
+		
+		_approved = true;
+		_txStart = block.timestamp; 
+
+		AuctionApproved(_highestBidder, _secondPrice);
+		return _approved; 
+	}
+ 
+	function finalize(uint kwhProd, uint kwhCons) returns (uint) {
+		uint sellRcv;	
+		uint buySnd;
+		_kwhProd = kwhProd;
+		_kwhCons = kwhCons;
+		
+
+//		if (msg.sender != _approver) 
+//			throw;
+//		if (_secondPrice <= 0)
+//			throw;
+
+		//error indifferent to under/over bidding
+//		if (_kwh > _kwhProd)
+//			sellRcv = _secondPrice - _secondPrice * (_kwh - _kwhProd)/ _kwh;
+//		else
+//			sellRcv = _secondPrice - _secondPrice * (_kwhProd - _kwh)/ _kwh; 
+//
+//		// Need to ensure sufficient money is deposited		
+//		if(_kwh > _kwhCons)
+//			buySnd = _secondPrice + _secondPrice * (_kwh - _kwhCons)/ _kwh;
+//		else
+//			buySnd = _secondPrice + _secondPrice * (_kwhCons - _kwh)/ _kwh;
+
+//		if (!_seller.send(sellRcv))
+//			throw;
+//
+//		if (!_highestBidder.send(bids[_highestBidder]._deposit - buySnd))
+//			throw;
+//
+//		if (!_approver.send(buySnd - sellRcv))
+//			throw;
+
+//		AuctionEnded(_kwhProd, _kwhCons);
+		//AuctionEnded();
+
+		_highestBid=0;
+		_secondPrice = 0;
+		_kwh = 0;
+		_txStart = 0;
+		_txLength = 0;
+		_reserve = 0;
+		_seller  = 0x0;
+		ReadyforAuction();
+		return (buySnd -sellRcv);
+	}
+	
+	function kill(){
+		if (msg.sender == _approver)
+			suicide(_approver);
+	}
+}
